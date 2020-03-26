@@ -16,6 +16,7 @@ import {
     readFileSync,
     isLowerCase,
     isChecksum,
+    isPathDir,
     getBinanceBEP2Symbols,
     isTRC10, isTRC20,
     isLogoOK,
@@ -24,7 +25,10 @@ import {
     mapList,
     findFiles,
     isValidJSON,
-    isValidatorHasAllKeys
+    isValidatorHasAllKeys,
+    getChainAssetPath,
+    rootDirAllowedFiles,
+    assetFolderAllowedFiles
 } from "./helpers"
 import { ValidatorModel } from "./models";
 import { getHandle } from "../../script/gen_info";
@@ -34,25 +38,6 @@ enum TickerType {
 }
 
 describe("Check repository root dir", () => {
-    const rootDirAllowedFiles = [
-        ".github",
-        "blockchains",
-        "dapps",
-        "media",
-        "node_modules",
-        "script",
-        "src",
-        ".gitignore",
-        "azure-pipelines.yml",
-        "jest.config.js",
-        "LICENSE",
-        "package-lock.json",
-        "package.json",
-        "README.md",
-        ".git",
-        "pricing"
-    ]
-
     const dirActualFiles = readDirSync(".")
     test("Root should contains only predefined files", () => {
         dirActualFiles.forEach(file => {
@@ -79,16 +64,36 @@ describe(`Test "blockchains" folder`, () => {
         })
     })
 
+    describe(`Asset folder should contain only predifind list of filees`, () => {
+        readDirSync(chainsFolderPath).forEach(chain => {
+            const assetsPath = getChainAssetsPath(chain)
+
+            if (isPathExistsSync(assetsPath)) {
+                test(`Test asset folder allowed files on chain: ${chain}`, () => {
+                readDirSync(assetsPath).forEach(address => {
+                    const assetFiles = getChainAssetPath(chain, address)
+                    readDirSync(assetFiles).forEach(assetFolderFile => {
+                        expect(assetFolderAllowedFiles.indexOf(assetFolderFile),`File "${assetFolderFile}" not allowed at this path: ${assetsPath}`).not.toBe(-1)
+                    })
+                }) 
+            })
+            }  
+        })
+    })
+
     describe("Check Ethereum side-chain folders", () => {
         ethSidechains.forEach(chain => {
             test(`Test chain ${chain} folder`, () => {
                 const assetsPath = getChainAssetsPath(chain)
 
                 readDirSync(assetsPath).forEach(addr => {
-                    const checksum: boolean = isChecksum(addr)
-                    expect(checksum, `Address ${addr} on chain ${chain} must be in checksum`).toBe(true)
+                    const assetPath = getChainAssetPath(chain, addr)
+                    expect(isPathDir(assetPath), `Expect directory at path: ${assetPath}`).toBe(true)
+
+                    const checksum = isChecksum(addr)
+                    expect(checksum, `Expect asset at path ${assetPath} in checksum`).toBe(true)
                     
-                    const lowercase: boolean = isLowerCase(addr)
+                    const lowercase = isLowerCase(addr)
                     if (lowercase) {
                         expect(checksum, `Lowercase address ${addr} on chain ${chain} should be in checksum`).toBe(true)
                     }
